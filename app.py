@@ -1,5 +1,6 @@
 from flask import Flask, render_template_string, request
 from formatter import format_wheel_order
+import os
 
 app = Flask(__name__)
 
@@ -74,11 +75,6 @@ def index():
         fitment=fitment,
         summary=summary
     )
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
-import os
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
