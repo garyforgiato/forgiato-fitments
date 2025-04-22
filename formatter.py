@@ -53,12 +53,14 @@ def format_wheel_order(fitment, summary):
                 raise ValueError("Incomplete ECL fitment block")
 
             center_forging = fitment_parts[i]  # e.g., 24x3
-            if "x" not in center_forging:
-                raise ValueError("Invalid center forging format")
+            ecl_keyword = fitment_parts[i + 1].lower()
 
-            diameter, center_width = center_forging.lower().replace("ecl", "").split("x")
+            if ecl_keyword != "ecl":
+                raise ValueError("Expected 'ecl' after center forging")
+
+            diameter, center_width = center_forging.lower().split("x")
             center_width = float(center_width)
-            i += 1  # skip 'ecl'
+            i += 2  # skip '24x3' and 'ecl'
 
             size = fitment_parts[i]
             outer = fitment_parts[i + 1]
