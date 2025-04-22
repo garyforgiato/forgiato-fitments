@@ -2,16 +2,19 @@ def format_wheel_order(fitment, summary):
     summary_parts = summary.split("|")
     wheel_series = summary_parts[1].strip() if len(summary_parts) > 1 else ""
     is_monoblock = "-M" in wheel_series.upper()
+    is_ecl = "ECL" in wheel_series.upper()
 
     if is_monoblock and len(summary_parts) < 4:
         raise ValueError("Monoblock summary must have 4 parts: VEHICLE | SERIES | CENTER FINISH | CAPS")
-    if not is_monoblock and len(summary_parts) < 7:
+    if not is_monoblock and not is_ecl and len(summary_parts) < 7:
         raise ValueError("3-piece summary must have 7 parts: VEHICLE | SERIES | CENTER | OUTER | INNER | BOLTS | CAPS")
+    if is_ecl and len(summary_parts) < 7:
+        raise ValueError("ECL summary must have 7 parts: VEHICLE | SERIES | CENTER | OUTER | INNER | BOLTS | CAPS")
 
     vehicle = summary_parts[0].strip()
     wheel_series = summary_parts[1].strip()
     center_finish = summary_parts[2].strip()
-    caps_finish = summary_parts[3].strip()
+    caps_finish = summary_parts[6].strip() if len(summary_parts) > 6 else summary_parts[3].strip()
 
     fitment_parts = fitment.split()
     if "/" not in fitment_parts[1]:
@@ -19,11 +22,11 @@ def format_wheel_order(fitment, summary):
 
     bolt_pattern = fitment_parts[0].strip()
     centerbore = fitment_parts[2].strip()
-    wheel_specs = fitment_parts[3:]
 
     output_lines = []
 
     if is_monoblock:
+        wheel_specs = fitment_parts[3:]
         center_line = f'{wheel_series.upper()} / {bolt_pattern.upper()} / {centerbore} **{center_finish.upper()}**'
         if "XL CAPS" in caps_finish.upper():
             center_line += " MACHINE FOR XL CAPS"
@@ -38,11 +41,64 @@ def format_wheel_order(fitment, summary):
 
         output_lines.append(f'CAPS **{caps_finish.upper()}**')
 
+    elif is_ecl:
+        outer_finish = summary_parts[3].strip()
+        inner_finish = summary_parts[4].strip()
+        bolts_finish = summary_parts[5].strip()
+        caps_line = f'CAPS **{caps_finish.upper()}**'
+
+        # Parse ECL lips
+        wheel_specs = fitment_parts[3:]
+        i = 0
+        while i < len(wheel_specs):
+            ecl_lip = wheel_specs[i]  # e.g., 24x2
+            ecl_width = float(ecl_lip.split("x")[1])
+            diameter = ecl_lip.split("x")[0]
+            i += 1  # skip 'ecl'
+
+            size = wheel_specs[i]
+            outer = wheel_specs[i + 1]
+            inner = wheel_specs[i + 2]
+            x_part = wheel_specs[i + 3]
+            et_part = wheel_specs[i + 4]
+
+            outer_val = float(outer.lower().replace("o", "").replace('"', ""))
+            inner_val = float(inner.lower().replace("i", "").replace('"', ""))
+            pad_height = x_part.split("=")[1]
+            offset = et_part.upper().replace("ET", "").strip()
+
+            output_lines.append(f'{diameter}" {outer_val}" OUTER 40H **{outer_finish.upper()}**')
+            output_lines.append(f'{diameter}" {inner_val}" INNER 40H **{inner_finish.upper()}**')
+
+            # CUT SPOKE logic
+            cut_spoke = " CUT SPOKE" if outer_val > ecl_width else ""
+
+            center_line = f'{ecl_lip.upper()}-ECL{cut_spoke} {wheel_series.split("ECL", 1)[-1].strip().upper()} X={pad_height} / {bolt_pattern.upper()} / {centerbore} **{center_finish.upper()}**'
+            if "XL CAPS" in caps_finish.upper():
+                center_line += " MACHINE FOR XL CAPS"
+
+            output_lines.append(center_line)
+            output_lines.append(f'{size.upper()} {offset}ET')
+
+            i += 5  # move to next ECL wheel
+
+        # Add bolts + caps
+        if "NO BOLTS" in bolts_finish.upper() or "BLIND BOLTS" in bolts_finish.upper():
+            bolts_line = "NO BOLTS"
+        else:
+            bolts_color = bolts_finish.replace("BOLTS", "").strip()
+            bolts_line = f'YES BOLTS **{bolts_color.upper()}**'
+
+        output_lines.append(bolts_line)
+        output_lines.append(caps_line)
+
     else:
+        # D-forging fallback
         outer_finish = summary_parts[3].strip()
         inner_finish = summary_parts[4].strip()
         bolts_finish = summary_parts[5].strip()
 
+        wheel_specs = fitment_parts[3:]
         i = 0
         while i < len(wheel_specs):
             size = wheel_specs[i]
@@ -72,6 +128,7 @@ def format_wheel_order(fitment, summary):
 
             i += 5
 
+        # Add bolts
         if "NO BOLTS" in bolts_finish.upper() or "BLIND BOLTS" in bolts_finish.upper():
             bolts_line = "NO BOLTS"
         else:
