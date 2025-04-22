@@ -1,7 +1,7 @@
 def format_wheel_order(fitment, summary):
     summary_parts = summary.split("|")
     wheel_series = summary_parts[1].strip() if len(summary_parts) > 1 else ""
-    is_monoblock = "M-" in wheel_series.upper()
+    is_monoblock = "-M" in wheel_series.upper()
 
     if is_monoblock and len(summary_parts) < 4:
         raise ValueError("Monoblock summary must have 4 parts: VEHICLE | SERIES | CENTER FINISH | CAPS")
