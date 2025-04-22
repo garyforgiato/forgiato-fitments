@@ -22,7 +22,6 @@ def format_wheel_order(fitment, summary):
 
     bolt_pattern = fitment_parts[0].strip()
     centerbore = fitment_parts[2].strip()
-
     output_lines = []
 
     if is_monoblock:
@@ -47,20 +46,25 @@ def format_wheel_order(fitment, summary):
         bolts_finish = summary_parts[5].strip()
         caps_line = f'CAPS **{caps_finish.upper()}**'
 
-        # Parse ECL lips
-        wheel_specs = fitment_parts[3:]
-        i = 0
-        while i < len(wheel_specs):
-            ecl_lip = wheel_specs[i]  # e.g., 24x2
-            ecl_width = float(ecl_lip.split("x")[1])
-            diameter = ecl_lip.split("x")[0]
+        i = 3  # start after bolt pattern, slash, centerbore
+        while i < len(fitment_parts):
+            # Example: 24x3 ecl
+            if i + 6 > len(fitment_parts):
+                raise ValueError("Incomplete ECL fitment block")
+
+            center_forging = fitment_parts[i]  # e.g., 24x3
+            if "x" not in center_forging:
+                raise ValueError("Invalid center forging format")
+
+            diameter, center_width = center_forging.lower().replace("ecl", "").split("x")
+            center_width = float(center_width)
             i += 1  # skip 'ecl'
 
-            size = wheel_specs[i]
-            outer = wheel_specs[i + 1]
-            inner = wheel_specs[i + 2]
-            x_part = wheel_specs[i + 3]
-            et_part = wheel_specs[i + 4]
+            size = fitment_parts[i]
+            outer = fitment_parts[i + 1]
+            inner = fitment_parts[i + 2]
+            x_part = fitment_parts[i + 3]
+            et_part = fitment_parts[i + 4]
 
             outer_val = float(outer.lower().replace("o", "").replace('"', ""))
             inner_val = float(inner.lower().replace("i", "").replace('"', ""))
@@ -70,19 +74,17 @@ def format_wheel_order(fitment, summary):
             output_lines.append(f'{diameter}" {outer_val}" OUTER 40H **{outer_finish.upper()}**')
             output_lines.append(f'{diameter}" {inner_val}" INNER 40H **{inner_finish.upper()}**')
 
-            # CUT SPOKE logic
-            cut_spoke = " CUT SPOKE" if outer_val > ecl_width else ""
+            cut_spoke = " CUT SPOKE" if outer_val > center_width else ""
+            model_name = wheel_series.upper().split("ECL", 1)[-1].strip()
 
-            center_line = f'{ecl_lip.upper()}-ECL{cut_spoke} {wheel_series.split("ECL", 1)[-1].strip().upper()} X={pad_height} / {bolt_pattern.upper()} / {centerbore} **{center_finish.upper()}**'
+            center_line = f'{diameter}x{int(center_width)}-ECL{cut_spoke} {model_name} X={pad_height} / {bolt_pattern.upper()} / {centerbore} **{center_finish.upper()}**'
             if "XL CAPS" in caps_finish.upper():
                 center_line += " MACHINE FOR XL CAPS"
 
             output_lines.append(center_line)
             output_lines.append(f'{size.upper()} {offset}ET')
+            i += 5
 
-            i += 5  # move to next ECL wheel
-
-        # Add bolts + caps
         if "NO BOLTS" in bolts_finish.upper() or "BLIND BOLTS" in bolts_finish.upper():
             bolts_line = "NO BOLTS"
         else:
@@ -93,7 +95,7 @@ def format_wheel_order(fitment, summary):
         output_lines.append(caps_line)
 
     else:
-        # D-forging fallback
+        # D-forging (standard 3-piece)
         outer_finish = summary_parts[3].strip()
         inner_finish = summary_parts[4].strip()
         bolts_finish = summary_parts[5].strip()
@@ -128,7 +130,6 @@ def format_wheel_order(fitment, summary):
 
             i += 5
 
-        # Add bolts
         if "NO BOLTS" in bolts_finish.upper() or "BLIND BOLTS" in bolts_finish.upper():
             bolts_line = "NO BOLTS"
         else:
